@@ -1,0 +1,60 @@
+// firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isFacilitator(session) {
+      return isAuthed() && session.data.facilitatorUid == request.auth.uid;
+    }
+
+    function isSelf(uid) {
+      return isAuthed() && uid == request.auth.uid;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if true;
+
+      // Only facilitator can set activeRoundId or update session metadata
+      allow create: if isAuthed();
+      allow update, delete: if isFacilitator(resource);
+
+      match /participants/{participantId} {
+        allow read: if true;
+        // Join/update self only
+        allow create, update: if isSelf(participantId);
+        // Prevent deleting other participants
+        allow delete: if isFacilitator(getResource(sessionId)) || isSelf(participantId);
+      }
+
+      match /rounds/{roundId} {
+        allow read: if true;
+
+        // Only facilitator can create/update/delete rounds
+        allow create, update, delete: if isFacilitator(getResource(sessionId));
+
+        match /votes/{participantId} {
+          allow read: if true;
+
+          // A participant may write their own vote only when round is voting
+          allow create, update: if isSelf(participantId)
+                                && getRound(sessionId, roundId).data.status == 'voting';
+
+          // Facilitator can delete votes (during reset)
+          allow delete: if isFacilitator(getResource(sessionId));
+        }
+      }
+    }
+
+    // Helpers to fetch parent docs
+    function getResource(sessionId) {
+      return get(/databases/$(database)/documents/sessions/$(sessionId));
+    }
+    function getRound(sessionId, roundId) {
+      return get(/databases/$(database)/documents/sessions/$(sessionId)/rounds/$(roundId));
+    }
+  }
+}
