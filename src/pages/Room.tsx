@@ -22,14 +22,20 @@ export default function Room() {
   useEffect(() => { ensureAnon(); }, []);
 
   useEffect(() => {
-    if (!sessionId || !session?.activeRoundId) return;
-    const unsub = onSnapshot(collection(firestore, 'sessions', sessionId, 'rounds', session.activeRoundId, 'votes'), (snap) => {
+    // Subscribe to the currently active round (use `round?.id` so we still subscribe
+    // if the round was discovered by the rounds-query before the session was updated)
+    if (!sessionId || !round?.id) {
+      setVotes({}); return;
+    }
+    const unsub = onSnapshot(collection(firestore, 'sessions', sessionId, 'rounds', round.id, 'votes'), (snap) => {
       const v: Record<string, any> = {};
       snap.forEach(d => { v[d.id] = d.data(); });
+      // Debugging: log how many votes we observe
+      console.debug('votes snapshot', { sessionId, roundId: round.id, count: snap.size, ids: snap.docs.map(d=>d.id) });
       setVotes(v);
     });
-    return () => unsub();
-  }, [sessionId, session?.activeRoundId]);
+    return () => { unsub(); };
+  }, [sessionId, round?.id]);
 
   const stats = useMemo(() => {
     const vals = Object.values(votes).map(v => Number(v.value)).filter(v => !Number.isNaN(v));
@@ -45,7 +51,16 @@ export default function Room() {
   return (
     <section className="max-w-6xl mx-auto px-4 py-6 space-y-4">
       <div className="bg-gray-50 dark:bg-gray-900 dark:text-gray-100 p-4 rounded shadow flex items-center justify-between">
-        <div className="font-semibold">{session?.name || 'Room'}</div>
+        <div className="flex items-center gap-3">
+          <div className="font-semibold">{session?.name || 'Room'}</div>
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold
+                ${round?.status === 'voting' ? 'bg-amber-300 text-black dark:bg-amber-500 dark:text-black' : ''}
+                ${round?.status === 'revealed' ? 'bg-emerald-500 text-white' : ''}
+                ${!round?.status ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' : ''}
+              `}>
+                {round?.status === 'voting' ? 'Voting' : round?.status === 'revealed' ? 'Revealed' : 'Waiting to start'}
+          </span>
+        </div>
         <div className="flex items-center gap-3">
           <span className="px-2 py-1 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded">Code: {session?.code}</span>
           <button
@@ -68,27 +83,29 @@ export default function Room() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-4">
-          <div className="bg-gray-100 dark:bg-gray-800 dark:text-gray-100 p-4 rounded shadow">
+  <div className="bg-gray-100 dark:bg-gray-800 dark:text-gray-100 p-4 rounded shadow">
             <div className="flex justify-between mb-2">
-              <div className="font-medium">Participants</div>
-              {isFacilitator && (
-                round?.status === 'voting' ? (
-                  <button
-                    onClick={() => round && revealRound(sessionId!, round.id)}
-                    className="px-3 py-1 rounded bg-teal-600 text-white"
-                  >
-                    Reveal
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => startRound(sessionId!)}
-                    className="px-3 py-1 rounded bg-emerald-500 text-white"
-                  >
-                    {round?.status === 'revealed' ? 'Start Next Round' : 'Start Round'}
-                  </button>
-                )
-              )}
-            </div>
+              <div className="font-medium">Participants</div> 
+              <div className="flex items-center gap-3">
+                {isFacilitator && (
+                  round?.status === 'voting' ? (
+                    <button
+                      onClick={() => round && revealRound(sessionId!, round.id)}
+                      className="px-3 py-1 rounded bg-teal-600 text-white"
+                    >
+                      Reveal
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => startRound(sessionId!)}
+                      className="px-3 py-1 rounded bg-emerald-500 text-white"
+                    >
+                      {round?.status === 'revealed' ? 'Start Next Round' : 'Start Round'}
+                    </button>
+                  )
+                )}
+              </div>
+             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {participants.map(p => {
                 const voted = Boolean(votes[p.id]);
@@ -172,10 +189,9 @@ export default function Room() {
         </div>
 
         <div className="space-y-4">
+
           <div className="bg-gray-100 dark:bg-gray-800 dark:text-gray-100 p-4 rounded shadow">
             <div className="font-medium mb-2">Round</div>
-            <div>Status: {round?.status || '—'}</div>
-              {isFacilitator && null}
             {round?.status === 'revealed' && stats && (
               <div className="mt-4 space-y-1 text-sm">
                 <div>Min: {stats.min}</div>
