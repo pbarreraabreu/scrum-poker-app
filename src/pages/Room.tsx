@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useSession } from '../hooks/useSession';
 import { useParticipants } from '../hooks/useParticipants';
 import { useRound } from '../hooks/useRound';
+import { usePresence } from '../hooks/usePresence';
 import { auth, firestore, ensureAnon } from '../services/firebase';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { castVote, revealRound, startRound } from '../actions';
@@ -13,6 +14,7 @@ export default function Room() {
   const { sessionId } = useParams();
   const session = useSession(sessionId!);
   const participants = useParticipants(sessionId!);
+  usePresence(sessionId);
   const round = useRound(sessionId!, session?.activeRoundId);
   const [votes, setVotes] = useState<Record<string, any>>({});
   const me = auth.currentUser;
@@ -110,12 +112,14 @@ export default function Room() {
               {participants.map(p => {
                 const voted = Boolean(votes[p.id]);
                 const revealed = round?.status === 'revealed';
-                const value = votes[p.id]?.value;
+                const offline = p.status === 'offline';
+                const value = offline ? '-' : (votes[p.id]?.value);
                 return (
                   <div key={p.id} className="flex flex-col items-center gap-2">
                     <div className={
                       `poker-card ` +
-                      (revealed ? 'revealed ' : voted ? 'voted ' : 'not-yet closed ')
+                      (revealed ? 'revealed ' : voted ? 'voted ' : 'not-yet closed ') +
+                      (offline ? 'offline' : '')
                     }>
                       <div className="card-inner">
                         <div className="card-face card-front">
@@ -129,7 +133,7 @@ export default function Room() {
                       </div>
                     </div>
                     <div className="text-sm text-gray-700 dark:text-gray-300 text-center">
-                      <div className="font-medium">{p.nickname}</div>
+                      <div className="font-medium">{p.nickname}{offline ? ' • left' : ''}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">{p.role}</div>
                     </div>
                   </div>

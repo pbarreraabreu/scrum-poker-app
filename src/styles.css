@@ -60,6 +60,8 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, H
 }
 .poker-card.voted { border-color: #10b981; }
 .poker-card.not-yet { border-color: #9ca3af; /* gray-400 */ }
+.poker-card.offline { opacity: 0.4; filter: grayscale(60%); pointer-events: none; transition: opacity 240ms ease, transform 240ms ease; }
+.poker-card { transition: opacity 240ms ease, transform 240ms ease; }
 
 /* Flip faces */
 .card-inner {

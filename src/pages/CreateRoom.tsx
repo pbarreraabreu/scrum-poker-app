@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ensureAnon, firestore } from '../services/firebase';
-import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, where, getDocs, deleteField } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 function genCode() { return Math.random().toString(36).slice(2, 7).toUpperCase(); }
@@ -40,8 +40,10 @@ export default function CreateRoom() {
         role: 'facilitator',
         joinedAt: serverTimestamp(),
         connected: true,
+        lastSeen: serverTimestamp(),
+        leftAt: deleteField(),
         uid: authUser.uid
-      });
+      }, { merge: true });
 
       navigate(`/room/${sessionId}`);
     } catch (err: any) {

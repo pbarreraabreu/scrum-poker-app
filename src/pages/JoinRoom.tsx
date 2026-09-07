@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ensureAnon, firestore } from '../services/firebase';
-import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 export default function JoinRoom() {
@@ -37,6 +37,8 @@ export default function JoinRoom() {
       role,
       joinedAt: serverTimestamp(),
       connected: true,
+      lastSeen: serverTimestamp(),
+      leftAt: deleteField(),
       uid: user.uid
     }, { merge: true });
 

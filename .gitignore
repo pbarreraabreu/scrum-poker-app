@@ -10,6 +10,8 @@ package-lock.json
 dist/
 .vite/
 coverage/
+*.tsbuildinfo
+functions/lib/
 
 # firebase local cache
 .firebase/
