@@ -15,6 +15,7 @@ functions/lib/
 
 # firebase local cache
 .firebase/
+firebase-debug.log
 
 # env
 .env*

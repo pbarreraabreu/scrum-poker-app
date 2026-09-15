@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ensureAnon, firestore } from '../services/firebase';
-import { doc, setDoc, serverTimestamp, collection, query, where, getDocs, deleteField } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 function genCode() { return Math.random().toString(36).slice(2, 7).toUpperCase(); }
@@ -15,12 +15,13 @@ export default function CreateRoom() {
     setLoading(true);
     try {
       const authUser = await ensureAnon();
-      // Ensure code uniqueness by checking sessions by code (client-side best-effort)
       let code = genCode();
-      const q = query(collection(firestore, 'sessions'), where('code', '==', code));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
+      let roomCodeRef = doc(firestore, 'roomCodes', code);
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const snap = await getDoc(roomCodeRef);
+        if (!snap.exists()) break;
         code = genCode();
+        roomCodeRef = doc(firestore, 'roomCodes', code);
       }
 
       const sessionId = crypto.randomUUID();
@@ -30,6 +31,11 @@ export default function CreateRoom() {
         name: name || null,
         facilitatorUid: authUser.uid,
         deck: { id: 'fibonacci', values: [1,2,3,5,8,13,21] },
+        createdAt: serverTimestamp(),
+        status: 'active'
+      });
+      await setDoc(roomCodeRef, {
+        sessionId,
         createdAt: serverTimestamp(),
         status: 'active'
       });

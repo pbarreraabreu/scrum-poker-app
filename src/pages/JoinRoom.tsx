@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ensureAnon, firestore } from '../services/firebase';
-import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, deleteField } from 'firebase/firestore';
+import { deleteField, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 export default function JoinRoom() {
@@ -23,26 +23,35 @@ export default function JoinRoom() {
 
   const join = async () => {
     setLoading(true);
-    const user = await ensureAnon();
+    try {
+      const user = await ensureAnon();
+      const normalizedCode = code.toUpperCase();
+      const roomCodeSnap = await getDoc(doc(firestore, 'roomCodes', normalizedCode));
+      if (!roomCodeSnap.exists()) {
+        alert('Room not found');
+        return;
+      }
 
-    const q = query(collection(firestore, 'sessions'), where('code', '==', code.toUpperCase()));
-    const snap = await getDocs(q);
-    if (snap.empty) { setLoading(false); return alert('Room not found'); }
-    const sessionDoc = snap.docs[0];
-    const sessionId = sessionDoc.id;
+      const sessionId = roomCodeSnap.data().sessionId;
+      const participantRef = doc(firestore, 'sessions', sessionId, 'participants', user.uid);
+      await setDoc(participantRef, {
+        nickname: nickname || 'Guest',
+        role,
+        joinedAt: serverTimestamp(),
+        connected: true,
+        lastSeen: serverTimestamp(),
+        leftAt: deleteField(),
+        uid: user.uid,
+        joinCode: normalizedCode
+      }, { merge: true });
 
-    const participantRef = doc(firestore, 'sessions', sessionId, 'participants', user.uid);
-    await setDoc(participantRef, {
-      nickname: nickname || 'Guest',
-      role,
-      joinedAt: serverTimestamp(),
-      connected: true,
-      lastSeen: serverTimestamp(),
-      leftAt: deleteField(),
-      uid: user.uid
-    }, { merge: true });
-
-    navigate(`/room/${sessionId}`);
+      navigate(`/room/${sessionId}`);
+    } catch (err: any) {
+      console.error('Join room failed:', err);
+      alert(err?.message || 'Room not found');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
