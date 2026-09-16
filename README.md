@@ -44,6 +44,8 @@ The application is a Vite-powered React single-page app deployed to Firebase Hos
 
 For more detail, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+For a concise reviewer-facing overview, see [docs/TECHNICAL_SUMMARY_FOR_REVIEWERS.md](docs/TECHNICAL_SUMMARY_FOR_REVIEWERS.md).
+
 ## How It Works
 
 1. A facilitator creates a room.

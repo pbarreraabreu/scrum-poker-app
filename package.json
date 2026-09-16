@@ -2,7 +2,6 @@
   "name": "scrum-poker-app",
   "version": "0.1.0",
   "description": "EstimateCards is a collaborative Scrum Poker web app for agile story estimation.",
-  "private": true,
   "license": "MIT",
   "homepage": "https://estimatecards.com/",
   "repository": {
