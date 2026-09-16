@@ -1,7 +1,7 @@
 import { auth, firestore, ensureAnon } from '../services/firebase';
-import { collection, deleteDoc, deleteField, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteField, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 
-const VALID_VOTES = new Set<number | string>([1, 2, 3, 5, 8, 13, 21, '?', 'â˜•']);
+const VALID_VOTES = new Set<number | string>([1, 2, 3, 5, 8, 13, 21, '?', '☕']);
 
 function genCode() {
   return Math.random().toString(36).slice(2, 7).toUpperCase();
@@ -29,14 +29,14 @@ export async function createRoom(name?: string) {
     code,
     name: cleanOptionalText(name, 80) || null,
     facilitatorUid: user.uid,
-    deck: { id: 'fibonacci', values: [1,2,3,5,8,13,21] },
+    deck: { id: 'fibonacci', values: [1, 2, 3, 5, 8, 13, 21] },
     createdAt: serverTimestamp(),
-    status: 'active'
+    status: 'active',
   });
   await setDoc(roomCodeRef, {
     sessionId,
     createdAt: serverTimestamp(),
-    status: 'active'
+    status: 'active',
   });
 
   const participantRef = doc(firestore, 'sessions', sessionId, 'participants', user.uid);
@@ -47,13 +47,13 @@ export async function createRoom(name?: string) {
     connected: true,
     lastSeen: serverTimestamp(),
     leftAt: deleteField(),
-    uid: user.uid
+    uid: user.uid,
   }, { merge: true });
   return sessionId;
 }
 
 export async function startRound(sessionId: string) {
-  const user = auth.currentUser!;
+  const user = auth.currentUser;
   if (!user) await ensureAnon();
   const roundsCol = collection(firestore, 'sessions', sessionId, 'rounds');
   const roundRef = doc(roundsCol, crypto.randomUUID());
@@ -73,18 +73,7 @@ export async function castVote(sessionId: string, roundId: string, value: number
 }
 
 export async function revealRound(sessionId: string, roundId: string) {
-  const user = await ensureAnon();
+  await ensureAnon();
   const roundRef = doc(firestore, 'sessions', sessionId, 'rounds', roundId);
   await updateDoc(roundRef, { status: 'revealed', revealedAt: serverTimestamp() });
-}
-
-export async function resetRound(sessionId: string, roundId: string) {
-  const user = await ensureAnon();
-  // Facilitator should delete votes; enforced by rules
-  const votesCol = collection(firestore, 'sessions', sessionId, 'rounds', roundId, 'votes');
-  const snap = await getDoc(doc(firestore, 'sessions', sessionId));
-  if (!snap.exists()) return;
-  // Client-side: delete my own vote (others will be deletable if facilitator)
-  const myVoteRef = doc(votesCol, user.uid);
-  try { await deleteDoc(myVoteRef); } catch {}
 }
