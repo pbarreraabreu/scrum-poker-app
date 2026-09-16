@@ -1,4 +1,10 @@
-// firestore.rules
+// Firestore security rules for EstimateCards.
+//
+// Model:
+// - Anonymous Auth gives every browser session a stable Firebase uid.
+// - A user becomes a room participant when a matching participant document exists.
+// - Room internals are readable only by joined participants.
+// - Public room-code lookup exposes only a code -> session id mapping.
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -104,7 +110,7 @@ service cloud.firestore {
 
     function isValidVote() {
       return request.resource.data.keys().hasOnly(['value', 'castAt'])
-        && request.resource.data.value in [1, 2, 3, 5, 8, 13, 21, '?', 'â˜•', 'Ã¢Ëœâ€¢']
+        && request.resource.data.value in [1, 2, 3, 5, 8, 13, 21, '?', '☕']
         && request.resource.data.castAt == request.time;
     }
 

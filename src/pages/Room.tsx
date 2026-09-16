@@ -32,8 +32,6 @@ export default function Room() {
     const unsub = onSnapshot(collection(firestore, 'sessions', sessionId, 'rounds', round.id, 'votes'), (snap) => {
       const v: Record<string, any> = {};
       snap.forEach(d => { v[d.id] = d.data(); });
-      // Debugging: log how many votes we observe
-      console.debug('votes snapshot', { sessionId, roundId: round.id, count: snap.size, ids: snap.docs.map(d=>d.id) });
       setVotes(v);
     });
     return () => { unsub(); };
