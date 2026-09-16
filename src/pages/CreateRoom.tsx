@@ -3,6 +3,8 @@ import { ensureAnon, firestore } from '../services/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
+const DISPLAY_NAME_STORAGE_KEY = 'scrumPoker.displayName';
+
 function genCode() { return Math.random().toString(36).slice(2, 7).toUpperCase(); }
 function cleanOptionalText(value: string, maxLength: number) {
   const trimmed = value.trim();
@@ -11,7 +13,7 @@ function cleanOptionalText(value: string, maxLength: number) {
 
 export default function CreateRoom() {
   const [name, setName] = useState('');
-  const [facilitatorName, setFacilitatorName] = useState('');
+  const [facilitatorName, setFacilitatorName] = useState(() => localStorage.getItem(DISPLAY_NAME_STORAGE_KEY) || '');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -45,8 +47,9 @@ export default function CreateRoom() {
       });
 
       const participantRef = doc(firestore, 'sessions', sessionId, 'participants', authUser.uid);
+      const displayName = cleanOptionalText(facilitatorName, 40) || 'Facilitator';
       await setDoc(participantRef, {
-        nickname: cleanOptionalText(facilitatorName, 40) || 'Facilitator',
+        nickname: displayName,
         role: 'facilitator',
         joinedAt: serverTimestamp(),
         connected: true,
@@ -54,6 +57,7 @@ export default function CreateRoom() {
         leftAt: deleteField(),
         uid: authUser.uid
       }, { merge: true });
+      localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, displayName);
 
       navigate(`/room/${sessionId}`);
     } catch (err: any) {

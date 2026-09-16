@@ -3,6 +3,7 @@ import { ensureAnon, firestore } from '../services/firebase';
 import { deleteField, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
+const DISPLAY_NAME_STORAGE_KEY = 'scrumPoker.displayName';
 const ROOM_CODE_PATTERN = /^[A-Z0-9]{5}$/;
 
 function cleanNickname(value: string) {
@@ -13,7 +14,7 @@ function cleanNickname(value: string) {
 export default function JoinRoom() {
   const [code, setCode] = useState('');
   const [codeLocked, setCodeLocked] = useState(false);
-  const [nickname, setNickname] = useState('');
+  const [nickname, setNickname] = useState(() => localStorage.getItem(DISPLAY_NAME_STORAGE_KEY) || '');
   const [role, setRole] = useState<'player'|'spectator'>('player');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -46,8 +47,9 @@ export default function JoinRoom() {
 
       const sessionId = roomCodeSnap.data().sessionId;
       const participantRef = doc(firestore, 'sessions', sessionId, 'participants', user.uid);
+      const displayName = cleanNickname(nickname);
       await setDoc(participantRef, {
-        nickname: cleanNickname(nickname),
+        nickname: displayName,
         role,
         joinedAt: serverTimestamp(),
         connected: true,
@@ -56,6 +58,7 @@ export default function JoinRoom() {
         uid: user.uid,
         joinCode: normalizedCode
       }, { merge: true });
+      localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, displayName);
 
       navigate(`/room/${sessionId}`);
     } catch (err: any) {
