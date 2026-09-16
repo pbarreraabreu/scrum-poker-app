@@ -105,8 +105,8 @@ Realtime Database rules enforce:
 ## Limitations and Future Improvements
 
 - Existing rooms created before room-code lookup documents may not be joinable by code.
-- There are no automated browser tests yet.
-- ESLint is not fully configured in the root project.
+- Automated coverage currently focuses on lightweight rendering and pure voting utilities.
+- End-to-end browser tests are not configured yet.
 - App Check is recommended but not yet enabled.
 - Presence cleanup is best effort and depends on browser/network behavior.
 - Room lifecycle cleanup and archival are future improvements.

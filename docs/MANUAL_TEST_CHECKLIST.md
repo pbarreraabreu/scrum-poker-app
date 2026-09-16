@@ -63,6 +63,12 @@ Use this checklist before merging user-facing changes or deploying security-rule
 - [ ] Toggle dark mode.
 - [ ] Toggle light mode.
 
+## Repository Checks
+
+- [ ] Run `npm run lint`.
+- [ ] Run `npm test`.
+- [ ] Run `npm run build`.
+
 ## Invalid Inputs
 
 - [ ] Try an invalid room code.

@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { useParams } from 'react-router-dom';
-import { useSession } from '../hooks/useSession';
-import { useParticipants } from '../hooks/useParticipants';
-import { useRound } from '../hooks/useRound';
-import { usePresence } from '../hooks/usePresence';
-import { auth, firestore, ensureAnon } from '../services/firebase';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { castVote, revealRound, startRound } from '../actions';
+import { useParticipants } from '../hooks/useParticipants';
+import { usePresence } from '../hooks/usePresence';
+import { useRound } from '../hooks/useRound';
+import { useSession } from '../hooks/useSession';
+import { auth, ensureAnon, firestore } from '../services/firebase';
+import {
+  COFFEE_VOTE,
+  FIBONACCI_VOTES,
+  UNKNOWN_VOTE,
+  calculateVoteStats,
+  type VoteRecord,
+  type VoteValue,
+} from '../utils/voting';
 
-const FIB = [1,2,3,5,8,13,21, '☕'];
+const DECK: VoteValue[] = [...FIBONACCI_VOTES, COFFEE_VOTE];
 
 export default function Room() {
   const { sessionId } = useParams();
@@ -16,53 +24,56 @@ export default function Room() {
   const participants = useParticipants(sessionId!);
   usePresence(sessionId);
   const round = useRound(sessionId!, session?.activeRoundId);
-  const [votes, setVotes] = useState<Record<string, any>>({});
+  const [votes, setVotes] = useState<Record<string, VoteRecord>>({});
   const me = auth.currentUser;
   const isFacilitator = me && session?.facilitatorUid === me.uid;
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => { ensureAnon(); }, []);
+  useEffect(() => {
+    ensureAnon();
+  }, []);
 
   useEffect(() => {
-    // Subscribe to the currently active round (use `round?.id` so we still subscribe
-    // if the round was discovered by the rounds-query before the session was updated)
+    // Subscribe to the currently active round, including when it is discovered by the rounds query first.
     if (!sessionId || !round?.id) {
-      setVotes({}); return;
+      setVotes({});
+      return;
     }
+
     const unsub = onSnapshot(collection(firestore, 'sessions', sessionId, 'rounds', round.id, 'votes'), (snap) => {
-      const v: Record<string, any> = {};
-      snap.forEach(d => { v[d.id] = d.data(); });
-      setVotes(v);
+      const nextVotes: Record<string, VoteRecord> = {};
+      snap.forEach((voteDoc) => {
+        nextVotes[voteDoc.id] = voteDoc.data() as VoteRecord;
+      });
+      setVotes(nextVotes);
     });
-    return () => { unsub(); };
+
+    return () => {
+      unsub();
+    };
   }, [sessionId, round?.id]);
 
-  const stats = useMemo(() => {
-    const vals = Object.values(votes).map(v => Number(v.value)).filter(v => !Number.isNaN(v));
-    if (!vals.length) return null;
-    const min = Math.min(...vals);
-    const max = Math.max(...vals);
-    const avg = +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2);
-    const mode = vals.sort((a,b)=>a-b).reduce((m:Record<number,number>,v)=>{m[v]=(m[v]||0)+1;return m;},{})
-    const top = Object.entries(mode).sort((a:any,b:any)=>b[1]-a[1])[0][0];
-    return { min, max, avg, mode: Number(top) };
-  }, [votes]);
+  const stats = useMemo(() => calculateVoteStats(votes), [votes]);
 
   return (
     <section className="max-w-6xl mx-auto px-4 py-6 space-y-4">
       <div className="bg-gray-50 dark:bg-gray-900 dark:text-gray-100 p-4 rounded shadow flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="font-semibold">{session?.name || 'Room'}</div>
-          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold
-                ${round?.status === 'voting' ? 'bg-amber-300 text-black dark:bg-amber-500 dark:text-black' : ''}
-                ${round?.status === 'revealed' ? 'bg-emerald-500 text-white' : ''}
-                ${!round?.status ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' : ''}
-              `}>
-                {round?.status === 'voting' ? 'Voting' : round?.status === 'revealed' ? 'Revealed' : 'Waiting to start'}
+          <span
+            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold
+              ${round?.status === 'voting' ? 'bg-amber-300 text-black dark:bg-amber-500 dark:text-black' : ''}
+              ${round?.status === 'revealed' ? 'bg-emerald-500 text-white' : ''}
+              ${!round?.status ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' : ''}
+            `}
+          >
+            {round?.status === 'voting' ? 'Voting' : round?.status === 'revealed' ? 'Revealed' : 'Waiting to start'}
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="px-2 py-1 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded">Code: {session?.code}</span>
+          <span className="px-2 py-1 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded">
+            Code: {session?.code}
+          </span>
           <button
             onClick={() => {
               const url = location.origin + '/join?code=' + (session?.code || '');
@@ -83,9 +94,9 @@ export default function Room() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-4">
-  <div className="bg-gray-100 dark:bg-gray-800 dark:text-gray-100 p-4 rounded shadow">
+          <div className="bg-gray-100 dark:bg-gray-800 dark:text-gray-100 p-4 rounded shadow">
             <div className="flex justify-between mb-2">
-              <div className="font-medium">Participants</div> 
+              <div className="font-medium">Participants</div>
               <div className="flex items-center gap-3">
                 {isFacilitator && (
                   round?.status === 'voting' ? (
@@ -105,23 +116,26 @@ export default function Room() {
                   )
                 )}
               </div>
-             </div>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {participants.map(p => {
-                const voted = Boolean(votes[p.id]);
+              {participants.map((participant) => {
+                const voted = Boolean(votes[participant.id]);
                 const revealed = round?.status === 'revealed';
-                const offline = p.status === 'offline';
-                const value = offline ? '-' : (votes[p.id]?.value);
+                const offline = participant.status === 'offline';
+                const value = offline ? '-' : votes[participant.id]?.value;
+
                 return (
-                  <div key={p.id} className="flex flex-col items-center gap-2">
-                    <div className={
-                      `poker-card ` +
-                      (revealed ? 'revealed ' : voted ? 'voted ' : 'not-yet closed ') +
-                      (offline ? 'offline' : '')
-                    }>
+                  <div key={participant.id} className="flex flex-col items-center gap-2">
+                    <div
+                      className={
+                        `poker-card ` +
+                        (revealed ? 'revealed ' : voted ? 'voted ' : 'not-yet closed ') +
+                        (offline ? 'offline' : '')
+                      }
+                    >
                       <div className="card-inner">
                         <div className="card-face card-front">
-                          {/* masked side: no text, design-only */}
+                          {/* Masked side: no text, design-only. */}
                         </div>
                         <div className="card-face card-back">
                           <span className="corner top-left">{value ?? '-'}</span>
@@ -131,8 +145,8 @@ export default function Room() {
                       </div>
                     </div>
                     <div className="text-sm text-gray-700 dark:text-gray-300 text-center">
-                      <div className="font-medium">{p.nickname}{offline ? ' • left' : ''}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{p.role}</div>
+                      <div className="font-medium">{participant.nickname}{offline ? ' - left' : ''}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{participant.role}</div>
                     </div>
                   </div>
                 );
@@ -143,42 +157,34 @@ export default function Room() {
           <div className="bg-gray-100 dark:bg-gray-800 dark:text-gray-100 p-4 rounded shadow">
             <div className="font-medium mb-2">Deck</div>
             <div className="flex flex-wrap gap-3">
-              {FIB.map(v => {
-                const selected = !!me && votes[me.uid]?.value === v;
+              {DECK.map((vote) => {
+                const selected = !!me && votes[me.uid]?.value === vote;
                 const disabled = round?.status === 'revealed';
                 return (
                   <button
-                    key={v}
-                    onClick={() => !disabled && round && castVote(sessionId!, round.id, v)}
+                    key={vote}
+                    onClick={() => !disabled && round && castVote(sessionId!, round.id, vote)}
                     disabled={disabled}
-                    className={
-                      `poker-card deck ` +
-                      (selected ? 'selected ' : '') +
-                      (disabled ? 'disabled ' : '')
-                    }
+                    className={`poker-card deck ${selected ? 'selected ' : ''}${disabled ? 'disabled ' : ''}`}
                     aria-pressed={selected}
-                      aria-label={`Vote ${typeof v === 'number' ? v : 'coffee'}`}
+                    aria-label={`Vote ${typeof vote === 'number' ? vote : 'coffee'}`}
                   >
-                      <span className="corner top-left">{v}</span>
-                      <span className="value">{v}</span>
-                      <span className="corner bottom-right">{v}</span>
+                    <span className="corner top-left">{vote}</span>
+                    <span className="value">{vote}</span>
+                    <span className="corner bottom-right">{vote}</span>
                   </button>
                 );
               })}
               {(() => {
-                const selected = !!me && votes[me.uid]?.value === '?';
+                const selected = !!me && votes[me.uid]?.value === UNKNOWN_VOTE;
                 const disabled = round?.status === 'revealed';
                 return (
                   <button
-                    onClick={() => !disabled && round && castVote(sessionId!, round.id, '?')}
+                    onClick={() => !disabled && round && castVote(sessionId!, round.id, UNKNOWN_VOTE)}
                     disabled={disabled}
-                    className={
-                      `poker-card deck ` +
-                      (selected ? 'selected ' : '') +
-                      (disabled ? 'disabled ' : '')
-                    }
+                    className={`poker-card deck ${selected ? 'selected ' : ''}${disabled ? 'disabled ' : ''}`}
                     aria-pressed={selected}
-                    aria-label={`Vote unknown`}
+                    aria-label="Vote unknown"
                   >
                     <span className="corner top-left">?</span>
                     <span className="value">?</span>
@@ -191,7 +197,6 @@ export default function Room() {
         </div>
 
         <div className="space-y-4">
-
           <div className="bg-gray-100 dark:bg-gray-800 dark:text-gray-100 p-4 rounded shadow">
             <div className="font-medium mb-2">Round</div>
             {round?.status === 'revealed' && stats && (

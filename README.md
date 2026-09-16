@@ -138,7 +138,8 @@ Firebase web configuration is public by design. Do not commit `.env` files or se
 - `npm run build` - type-check and build the production app
 - `npm run preview` - preview the production build locally
 - `npm run deploy` - deploy with the Firebase CLI
-- `npm run lint` - placeholder lint command; root ESLint dependencies are not currently configured
+- `npm run lint` - run ESLint for the React/TypeScript app
+- `npm test` - run the Vitest test suite
 
 ## Security and Privacy
 
@@ -154,23 +155,32 @@ See [SECURITY.md](SECURITY.md) for reporting guidance.
 
 ## Screenshots
 
-Screenshots are not included yet.
+### Home Page
 
-Suggested screenshots to add:
+![EstimateCards home page](docs/screenshots/home.png)
 
-- Home page
-- Create room form
-- Active voting room
-- Revealed results
-- Mobile layout
-- Dark mode
+### Create Room
+
+![Create room form](docs/screenshots/create-room.png)
+
+### Active Voting Room
+
+![Active voting room](docs/screenshots/active-voting-room.png)
+
+### Revealed Results
+
+![Revealed voting results](docs/screenshots/revealed-results.png)
+
+### Mobile Layout
+
+![Mobile join room layout](docs/screenshots/mobile-join-room.png)
+
+### Dark Mode
+
+![Dark mode home page](docs/screenshots/dark-mode-home.png)
 
 ## Roadmap
 
-- Add screenshots and demo GIFs
-- Add GitHub Actions status badge
-- Configure ESLint for CI linting
-- Add automated tests for core flows
 - Add Firebase App Check
 - Improve room lifecycle cleanup
 - Add optional story title/link support
