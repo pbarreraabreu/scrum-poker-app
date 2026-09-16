@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,10 +14,11 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
 export const auth = getAuth(app);
 export const firestore = getFirestore(app);
 export const database = getDatabase(app);
-// Optional: quick validation to help diagnose env issues during dev
+
 if (
   !firebaseConfig.apiKey ||
   !firebaseConfig.authDomain ||
@@ -25,12 +26,10 @@ if (
   !firebaseConfig.projectId ||
   !firebaseConfig.appId
 ) {
-  // eslint-disable-next-line no-console
-  console.warn('Firebase config appears incomplete. Check .env and Project Settings → Your apps config.');
+  console.warn('Firebase config appears incomplete. Check .env and Project Settings > Your apps config.');
 }
 
 export async function ensureAnon() {
-  // If already signed in, return the current user
   if (auth.currentUser) return auth.currentUser;
   const cred = await signInAnonymously(auth);
   return cred.user;

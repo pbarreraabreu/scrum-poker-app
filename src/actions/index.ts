@@ -1,7 +1,6 @@
-import { auth, firestore, ensureAnon } from '../services/firebase';
 import { collection, deleteField, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-
-const VALID_VOTES = new Set<number | string>([1, 2, 3, 5, 8, 13, 21, '?', '☕']);
+import { auth, ensureAnon, firestore } from '../services/firebase';
+import { isValidVote, type VoteValue } from '../utils/voting';
 
 function genCode() {
   return Math.random().toString(36).slice(2, 7).toUpperCase();
@@ -62,8 +61,8 @@ export async function startRound(sessionId: string) {
   await updateDoc(sessionRef, { activeRoundId: roundRef.id });
 }
 
-export async function castVote(sessionId: string, roundId: string, value: number | string) {
-  if (!VALID_VOTES.has(value)) {
+export async function castVote(sessionId: string, roundId: string, value: VoteValue) {
+  if (!isValidVote(value)) {
     throw new Error('Invalid vote value');
   }
 

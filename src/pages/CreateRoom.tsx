@@ -11,6 +11,10 @@ function cleanOptionalText(value: string, maxLength: number) {
   return trimmed ? trimmed.slice(0, maxLength) : '';
 }
 
+function getErrorMessage(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback;
+}
+
 export default function CreateRoom() {
   const [name, setName] = useState('');
   const [facilitatorName, setFacilitatorName] = useState(() => localStorage.getItem(DISPLAY_NAME_STORAGE_KEY) || '');
@@ -60,9 +64,9 @@ export default function CreateRoom() {
       localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, displayName);
 
       navigate(`/room/${sessionId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Create room failed:', err);
-      alert(err?.message || 'Failed to create room. Check Firestore rules and Anonymous Auth.');
+      alert(getErrorMessage(err, 'Failed to create room. Check Firestore rules and Anonymous Auth.'));
     } finally {
       setLoading(false);
     }

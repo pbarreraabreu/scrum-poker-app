@@ -1,59 +1,59 @@
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { firestore } from '../services/firebase';
+import type { Participant } from '../types';
 
-// Participants list computes an online flag; threshold controls offline detection
-const ONLINE_THRESHOLD_MS = 15_000; // 15 seconds (reduced for snappier disappearance)
+const ONLINE_THRESHOLD_MS = 15_000;
+const OFFLINE_LABEL_MS = 7_000;
+const AUTO_REMOVE_MS = 60_000;
+
+const offlineTimestamps: Record<string, number> = {};
 
 export function useParticipants(sessionId: string) {
-  const [list, setList] = useState<any[]>([]);
+  const [list, setList] = useState<Participant[]>([]);
+
   useEffect(() => {
     if (!sessionId) return;
+
     const unsub = onSnapshot(collection(firestore, 'sessions', sessionId, 'participants'), (snap) => {
       const now = Date.now();
-      const docs: any[] = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      const docs = snap.docs.map((participantDoc) => ({
+        id: participantDoc.id,
+        ...participantDoc.data(),
+      })) as Array<Omit<Participant, 'status' | 'online'>>;
 
-      // Hysteresis: avoid flicker by requiring a sustained offline period before labeling as "left"
-      const OFFLINE_LABEL_MS = 7_000; // 7 seconds
-      // keep per-participant timestamps for when they were first observed offline
-      const offlineTimestamps = (useParticipants as any)._offlineTimestamps || ((useParticipants as any)._offlineTimestamps = {} as Record<string, number>);
-
-      const withStatus = docs.map((p: any) => {
-        const last = (p.lastSeen?.toMillis?.() ?? p.joinedAt?.toMillis?.() ?? now) as number;
-        const recentlySeen = (now - last) < ONLINE_THRESHOLD_MS;
+      const withStatus = docs.map((participant) => {
+        const lastSeenMs = participant.lastSeen?.toMillis?.() ?? participant.joinedAt?.toMillis?.() ?? now;
+        const recentlySeen = now - lastSeenMs < ONLINE_THRESHOLD_MS;
 
         if (recentlySeen) {
-          // clear any offline timer
-          delete offlineTimestamps[p.id];
-        } else if (!offlineTimestamps[p.id]) {
-          // start offline timer
-          offlineTimestamps[p.id] = now;
+          delete offlineTimestamps[participant.id];
+        } else if (!offlineTimestamps[participant.id]) {
+          offlineTimestamps[participant.id] = now;
         }
 
-        // compute status
-        let status: 'online' | 'transient' | 'offline' = 'online';
-        if (p.connected === false || p.leftAt) {
+        let status: Participant['status'] = 'online';
+        if (participant.connected === false || participant.leftAt) {
           status = 'offline';
         } else if (!recentlySeen) {
-          const downSince = offlineTimestamps[p.id] ?? now;
-          if ((now - downSince) >= OFFLINE_LABEL_MS) status = 'offline';
-          else status = 'transient';
+          const downSince = offlineTimestamps[participant.id] ?? now;
+          status = now - downSince >= OFFLINE_LABEL_MS ? 'offline' : 'transient';
         }
 
-        return { ...p, status, online: status === 'online' };
+        return { ...participant, status, online: status === 'online' };
       });
 
-      // auto-remove participants who have left for longer than AUTO_REMOVE_MS
-      const AUTO_REMOVE_MS = 60_000; // 1 minute
-      const filtered = withStatus.filter((p: any) => {
-        if (!p.leftAt) return true;
-        const leftMs = (p.leftAt?.toMillis?.() ?? 0) as number;
-        return (now - leftMs) <= AUTO_REMOVE_MS;
+      const filtered = withStatus.filter((participant) => {
+        if (!participant.leftAt) return true;
+        const leftMs = participant.leftAt.toMillis?.() ?? 0;
+        return now - leftMs <= AUTO_REMOVE_MS;
       });
 
       setList(filtered);
     });
+
     return () => unsub();
   }, [sessionId]);
+
   return list;
 }

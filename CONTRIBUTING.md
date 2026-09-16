@@ -45,10 +45,12 @@ Use clear branch names such as:
 Before opening a pull request, run:
 
 ```bash
+npm run lint
+npm test
 npm run build
 ```
 
-The repository has a `lint` script, but root ESLint dependencies are not fully configured yet. CI currently runs the production build as the required check.
+CI runs lint, tests, and the production build for pull requests and pushes to `main`.
 
 ## Pull Requests
 
